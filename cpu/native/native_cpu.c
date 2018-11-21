@@ -48,7 +48,7 @@
 
 #include "irq.h"
 #include "sched.h"
-
+#include "xtimer.h"
 #include "cpu.h"
 #include "cpu_conf.h"
 
@@ -140,17 +140,22 @@ char *thread_stack_init(thread_task_func_t task_func, void *arg, void *stack_sta
 void isr_cpu_switch_context_exit(void)
 {
     ucontext_t *ctx;
+    uint32_t now = xtimer_now_usec();
 
     DEBUG("isr_cpu_switch_context_exit\n");
+    DEBUG("---------Context Switch: [1] isr_cpu_switch_context_exit--------\n");
     if ((sched_context_switch_request == 1) || (sched_active_thread == NULL)) {
         sched_run();
     }
 
-    DEBUG("isr_cpu_switch_context_exit: calling setcontext(%" PRIkernel_pid ")\n\n", sched_active_pid);
+    DEBUG("isr_cpu_switch_context_exit: calling setcontext(%" PRIkernel_pid ")\n", sched_active_pid);
     ctx = (ucontext_t *)(sched_active_thread->sp);
 
     native_interrupts_enabled = 1;
     _native_mod_ctx_leave_sigh(ctx);
+
+    uint32_t result = xtimer_now_usec() - now;
+    DEBUG("Bench: %d microseconds\n\n", result);
 
     if (setcontext(ctx) == -1) {
         err(EXIT_FAILURE, "isr_cpu_switch_context_exit: setcontext");
@@ -168,6 +173,7 @@ void cpu_switch_context_exit(void)
 #endif
 
     if (_native_in_isr == 0) {
+        DEBUG("---------Context Switch: [2] cpu_switch_context_exit--------\n");
         irq_disable();
         _native_in_isr = 1;
         native_isr_context.uc_stack.ss_sp = __isr_stack;
@@ -188,19 +194,20 @@ void cpu_switch_context_exit(void)
 void isr_thread_yield(void)
 {
     DEBUG("isr_thread_yield\n");
-
     if (_native_sigpend > 0) {
         DEBUG("isr_thread_yield(): handling signals\n\n");
         native_irq_handler();
     }
-
+    uint32_t now = xtimer_now_usec();
     sched_run();
     ucontext_t *ctx = (ucontext_t *)(sched_active_thread->sp);
-    DEBUG("isr_thread_yield: switching to(%" PRIkernel_pid ")\n\n", sched_active_pid);
+    DEBUG("isr_thread_yield: switching to(%" PRIkernel_pid ")\n", sched_active_pid);
 
     native_interrupts_enabled = 1;
     _native_mod_ctx_leave_sigh(ctx);
 
+    uint32_t result = xtimer_now_usec() - now;
+    DEBUG("Bench: %d microseconds\n\n", result);
     if (setcontext(ctx) == -1) {
         err(EXIT_FAILURE, "isr_thread_yield: setcontext");
     }
@@ -209,6 +216,7 @@ void isr_thread_yield(void)
 void thread_yield_higher(void)
 {
     if (_native_in_isr == 0) {
+        DEBUG("---------Context Switch: [3] thread_yield_higher--------\n");
         ucontext_t *ctx = (ucontext_t *)(sched_active_thread->sp);
         _native_in_isr = 1;
         if (!native_interrupts_enabled) {
