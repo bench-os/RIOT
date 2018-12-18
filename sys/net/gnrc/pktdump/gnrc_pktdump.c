@@ -35,6 +35,10 @@
 #include "net/sixlowpan.h"
 #include "od.h"
 
+#include "bench_context_switching.h"
+
+#define THREAD_DUMP 1
+
 /**
  * @brief   PID of the pktdump thread
  */
@@ -160,6 +164,7 @@ static void *_eventloop(void *arg)
 
         switch (msg.type) {
             case GNRC_NETAPI_MSG_TYPE_RCV:
+                bench_ping(THREAD_DUMP);
                 puts("PKTDUMP: data received:");
                 _dump(msg.content.ptr);
                 break;
