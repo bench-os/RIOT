@@ -17,20 +17,30 @@ struct BContext {
 void bench_ping(uint32_t id) {
   // Save the new id
   bench_context.new_id = id;
-  // Save the current time
-  bench_context.current_time = xtimer_now_usec();
   // Check for switching context
-  check_change();
+  if (!check_change()) {
+    // Save the current time
+    xtimer_ticks32_t current = xtimer_now();
+    bench_context.current_time = current.ticks32;
+  }
 }
 
-void check_change(void) {
+int check_change(void) {
   if(bench_context.new_id != bench_context.previous_id) {
+    // Compute the difference
+    xtimer_ticks32_t current = xtimer_now();
+    uint32_t previous = bench_context.current_time;
+    uint32_t result = current.ticks32 - previous;
+
     // Keep the previous id for log
     uint32_t previous_id = bench_context.previous_id;
     // Change previous_id to new_id
     bench_context.previous_id = bench_context.new_id;
-    // Compute the difference
-    uint32_t result = xtimer_now_usec() - bench_context.current_time;
+
     printf("[BENCH_CONTEXT_SWITCHING] %"PRIu32" %"PRIu32" %"PRIu32"\n", previous_id, bench_context.new_id, result);
+
+    return 1; // Change occurs
   }
+
+  return 0; // No change
 }
