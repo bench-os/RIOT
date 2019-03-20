@@ -14,14 +14,25 @@ struct BContext
   uint32_t current_time;
 } bench_context;
 
-/* int bench_init(void) */
-/* { */
-  /* if (uart_init(PC_UART, BAUDRATE, NULL, (void *)PC_UART) != UART_OK) */
-  /* { */
-    /* return 1; */
-  /* } */
-  /* return 0; */
-/* } */
+void rx_cb(void* arg, uint8_t data)
+{
+    (void) arg;
+    (void) data;
+    uint8_t msg = 1;
+
+    for (int i = 0; i < 100; i++) {
+        uart_write(PC_UART, &msg, 1);
+    }
+}
+
+int bench_init(void)
+{
+    if (uart_init(PC_UART, BAUDRATE, rx_cb, (void *)PC_UART) != UART_OK)
+    {
+        return 1;
+    }
+    return 0;
+}
 
 void bench_ping(uint32_t id)
 {
